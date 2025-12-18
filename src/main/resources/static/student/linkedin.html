@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Profile | Student Tracker</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL & ANIMATION --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0b0b0b, #1a1a1a, #262626);
+            background-size: 400% 400%;
+            animation: bgAnimation 15s ease infinite;
+            color: #fff; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- SIDEBAR (Standardized) --- */
+        .sidebar {
+            width: 260px; height: 100vh; background: rgba(20, 20, 20, 0.8);
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+        }
+        .logo { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #fff; }
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 12px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 16px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s; cursor: pointer;
+        }
+        .menu li a:hover, .menu li a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+
+        /* BANNER CARD */
+        .li-banner {
+            background: linear-gradient(135deg, #0077b5 0%, #004182 100%);
+            padding: 30px; border-radius: 12px; display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: 30px;
+            box-shadow: 0 8px 20px rgba(0, 119, 181, 0.4);
+        }
+        .li-info h1 { font-size: 28px; margin-bottom: 5px; }
+        .li-info p { opacity: 0.9; font-size: 14px; }
+        .li-btn {
+            background: white; color: #0077b5; padding: 10px 20px;
+            border-radius: 25px; text-decoration: none; font-weight: bold;
+            display: inline-flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .li-btn:hover { background: #f0f0f0; transform: scale(1.05); }
+
+        /* STATS GRID */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        
+        .card {
+            background: rgba(40, 40, 40, 0.6); padding: 25px;
+            border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        .card h3 { font-size: 16px; color: #aaa; margin-bottom: 10px; }
+        .card p { font-size: 42px; font-weight: 700; color: #fff; margin: 0; }
+        .card i { font-size: 32px; margin-bottom: 15px; display: block; }
+
+        /* PROFILE STRENGTH SECTION */
+        .strength-section {
+            background: rgba(40, 40, 40, 0.6); padding: 30px;
+            border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+        .strength-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .bar-container {
+            width: 100%; height: 14px; background: #333; border-radius: 10px; overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%; background: #2ecc71; width: 0%; /* Animated via JS */
+            transition: width 1.5s ease-in-out; border-radius: 10px;
+        }
+        
+        .update-hint { margin-top: 30px; font-size: 14px; color: #777; text-align: center; }
+        .update-hint a { color: #0077b5; text-decoration: none; font-weight: 600; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            setActiveNav();
+        });
+
+        // 1. FETCH REAL DATA FROM BACKEND
+        async function fetchData() {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) { window.location.href = "/"; return; }
+
+            try {
+                // Call the Controller
+                const res = await fetch("/api/linkedin/stats", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    document.getElementById('username').innerText = "@" + (data.username || "User");
+                    document.getElementById('visitBtn').href = data.profileLink || "#";
+
+                    document.getElementById('connCount').innerText = data.connections || 0;
+                    document.getElementById('follCount').innerText = data.followers || 0;
+                    document.getElementById('views').innerText = data.profileViews || 0; 
+                    document.getElementById('imps').innerText = data.postImpressions || 0; 
+
+                    document.getElementById('strengthText').innerText = data.profileStrength || "Beginner";
+                    
+                    setTimeout(() => {
+                        document.getElementById('strengthBar').style.width = (data.strengthScore || 10) + "%";
+                    }, 300);
+                } else {
+                    console.error("Failed to load LinkedIn stats");
+                }
+            } catch (err) {
+                console.error("Network Error:", err);
+            }
+        }
+
+        function logout() { 
+            if(confirm("Logout?")) { 
+                localStorage.clear(); 
+                window.location.href = "/"; 
+            } 
+        }
+
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'linkedin.html') a.classList.add('active');
+            });
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo">Student</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="leetcode.html"><i class="fa-brands fa-codepen"></i> LeetCode</a></li>
+        <li><a href="github.html"><i class="fa-brands fa-github"></i> GitHub</a></li>
+        <li><a href="hackerrank.html"><i class="fa-brands fa-hackerrank"></i> HackerRank</a></li>
+        <li><a href="linkedin.html"><i class="fa-brands fa-linkedin"></i> LinkedIn</a></li>
+        <li><a href="daily-coding.html"><i class="fa-solid fa-book"></i> Daily Coding</a></li>
+        <li><a href="certificates.html"><i class="fa-solid fa-award"></i> Certificates</a></li>
+        <li><a href="resume.html"><i class="fa-solid fa-file"></i> Resume</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li> 
+    </ul>
+</aside>
+
+<main class="main">
+    
+    <div class="li-banner">
+        <div class="li-info">
+            <h1><i class="fa-brands fa-linkedin"></i> LinkedIn Profile</h1>
+            <p id="username">Loading...</p>
+        </div>
+        <a id="visitBtn" href="#" target="_blank" class="li-btn">
+            View Public Profile <i class="fa-solid fa-external-link-alt"></i>
+        </a>
+    </div>
+
+    <section class="stats-grid">
+        <div class="card stat-box">
+            <i class="fa-solid fa-user-group stat-icon" style="color: #0077b5;"></i>
+            <h3>Connections</h3>
+            <p id="connCount">0</p>
+        </div>
+        <div class="card stat-box">
+            <i class="fa-solid fa-rss stat-icon" style="color: #e67e22;"></i>
+            <h3>Followers</h3>
+            <p id="follCount">0</p>
+        </div>
+        <div class="card stat-box">
+            <i class="fa-solid fa-eye stat-icon" style="color: #2ecc71;"></i>
+            <h3>Profile Views</h3>
+            <p id="views">0</p>
+        </div>
+        <div class="card stat-box">
+            <i class="fa-solid fa-chart-simple stat-icon" style="color: #f1c40f;"></i>
+            <h3>Impressions</h3>
+            <p id="imps">0</p>
+        </div>
+    </section>
+
+    <section class="strength-section">
+        <div class="strength-header">
+            <h3 style="color:#ccc; font-size:16px;">Profile Strength</h3>
+            <h2 id="strengthText" style="color:#2ecc71; font-size:20px;">Calculating...</h2>
+        </div>
+        
+        <div class="bar-container">
+            <div id="strengthBar" class="bar-fill"></div>
+        </div>
+
+        <p style="margin-top:15px; font-size:13px; color:#888;">
+            <i class="fa-solid fa-circle-info"></i> Tip: Reach 500+ connections to achieve "All-Star" status.
+        </p>
+    </section>
+
+    <div class="update-hint">
+        Numbers incorrect? <a href="settings.html">Edit stats in Settings</a>
+    </div>
+
+</main>
+
+</body>
+</html>

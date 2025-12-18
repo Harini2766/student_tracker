@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificates | Student Tracker</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL & ANIMATION (Standardized) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #121212, #1f1f1f, #2b2b2b, #121212);
+            background-size: 400% 400%;
+            animation: bgAnimation 15s ease infinite;
+            color: #fff; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- SIDEBAR (Standardized to Match Dashboard) --- */
+        .sidebar {
+            width: 260px; height: 100vh; background: rgba(20, 20, 20, 0.8);
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+        }
+        .logo { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #fff; }
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 12px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 16px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s; cursor: pointer;
+        }
+        .menu li a:hover, .menu li a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        .header { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 30px; }
+
+        /* CARD STYLES */
+        .card {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            position: relative;
+        }
+
+        /* UPLOAD SECTION */
+        .upload-section { margin-bottom: 30px; }
+        .upload-section h2 { margin-top: 0; margin-bottom: 15px; color: #ccc; font-size: 18px; }
+        
+        input[type="text"], input[type="file"] {
+            padding: 10px; margin-right: 10px; border: 1px solid #444;
+            border-radius: 6px; background: #222; color: #fff;
+        }
+        input[type="text"] { width: 250px; }
+        
+        button {
+            padding: 10px 20px; background: #9b59b6; /* Purple */
+            color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s;
+            font-weight: 600; display: inline-flex; align-items: center; gap: 8px;
+        }
+        button:hover { background: #8e44ad; }
+
+        /* CERTIFICATE LIST */
+        #certs {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .cert-card h3 { margin-top: 0; font-size: 20px; color: #fff; margin-bottom: 5px; }
+        .cert-card p { font-size: 14px; color: #b0b0b0; margin-bottom: 5px; }
+        
+        /* View Button Style */
+        .view-btn {
+            display: inline-block; margin-top: 10px; padding: 8px 12px;
+            background: #3498db; color: white; text-decoration: none;
+            border-radius: 4px; font-size: 12px; transition: 0.3s; border: none; cursor: pointer;
+        }
+        .view-btn:hover { background: #2980b9; }
+
+        /* Delete Button Style (Trash Icon) */
+        .delete-btn {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(231, 76, 60, 0.2); color: #e74c3c;
+            border: 1px solid #e74c3c; border-radius: 50%;
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+        }
+        .delete-btn:hover { background: #e74c3c; color: white; }
+
+        /* Status Colors */
+        .status-pending { color: #f1c40f; font-weight: bold; }
+        .status-verified { color: #2ecc71; font-weight: bold; }
+        .status-rejected { color: #e74c3c; font-weight: bold; }
+
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCertificates();
+            setActiveNav();
+        });
+
+        // 1. LOAD CERTIFICATES
+        function loadCertificates() {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) { window.location.href = "/"; return; }
+
+            const certsDiv = document.getElementById("certs");
+            certsDiv.innerHTML = '<p style="color: #b0b0b0;">Loading certificates...</p>';
+
+            fetch("/api/certificates/my", {
+                method: "GET",
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(async res => {
+                if (!res.ok) throw new Error(await res.text() || res.statusText);
+                return res.json();
+            })
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    certsDiv.innerHTML = data.map(c => {
+                        let statusClass = "status-pending";
+                        if(c.status === "VERIFIED") statusClass = "status-verified";
+                        if(c.status === "REJECTED") statusClass = "status-rejected";
+
+                        const certId = c.id || c.certificateId; 
+
+                        return `
+                        <div class="card cert-card">
+                            <button class="delete-btn" onclick="deleteCertificate(${certId})" title="Delete Certificate">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+
+                            <h3><i class="fa-solid fa-file-pdf"></i> ${c.name}</h3>
+                            <p>Date: ${c.issueDate || 'N/A'}</p>
+                            <p>Status: <span class="${statusClass}">${c.status}</span></p>
+                            
+                            <button onclick="viewCertificate(${certId})" class="view-btn">
+                                <i class="fa-solid fa-eye"></i> View File
+                            </button>
+                        </div>`;
+                    }).join("");
+                } else {
+                    certsDiv.innerHTML = '<div class="card"><p>No certificates uploaded yet.</p></div>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                certsDiv.innerHTML = `<p class="card" style="padding: 15px; color: red;">Error: ${err.message}</p>`;
+            });
+        }
+
+        // 2. DELETE CERTIFICATE
+        function deleteCertificate(id) {
+            if(!confirm("Are you sure you want to delete this certificate? This cannot be undone.")) return;
+
+            const token = localStorage.getItem("jwt_token");
+            fetch(`/api/certificates/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(async res => {
+                if(res.ok) {
+                    alert("Deleted successfully.");
+                    loadCertificates(); 
+                } else {
+                    alert("Failed to delete: " + await res.text());
+                }
+            })
+            .catch(err => alert("Error: " + err.message));
+        }
+
+        // 3. VIEW FILE
+        function viewCertificate(id) {
+            const token = localStorage.getItem("jwt_token");
+            fetch(`/api/certificates/download/${id}`, {
+                method: 'GET',
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(response => {
+                if (response.ok) return response.blob();
+                throw new Error("Could not download file");
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            })
+            .catch(err => {
+                alert("Error opening file: " + err.message);
+            });
+        }
+
+        // 4. UPLOAD FUNCTION
+        function upload() {
+            const token = localStorage.getItem("jwt_token");
+            const fileInput = document.getElementById("file");
+            const nameInput = document.getElementById("certName");
+            const btn = document.querySelector(".upload-section button");
+
+            if (!fileInput.files[0] || !nameInput.value) {
+                alert("Please select a file and enter a certificate name.");
+                return;
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("name", nameInput.value);
+
+            fetch("/api/certificates/upload", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token },
+                body: formData
+            })
+            .then(async res => {
+                if (res.ok) {
+                    alert("Upload Successful!");
+                    fileInput.value = ""; 
+                    nameInput.value = "";
+                    loadCertificates(); 
+                } else {
+                    const text = await res.text();
+                    alert("Upload Failed: " + text);
+                }
+            })
+            .catch(err => alert("Error uploading file"))
+            .finally(() => {
+                btn.innerHTML = "<i class='fa-solid fa-upload'></i> Upload";
+                btn.disabled = false;
+            });
+        }
+
+        function logout() {
+            if(confirm("Logout?")) {
+                localStorage.clear();
+                window.location.href = "/";
+            }
+        }
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'certificates.html') {
+                    a.classList.add('active');
+                }
+            });
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo">Student</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="leetcode.html"><i class="fa-brands fa-codepen"></i> LeetCode</a></li>
+        <li><a href="github.html"><i class="fa-brands fa-github"></i> GitHub</a></li>
+        <li><a href="hackerrank.html"><i class="fa-brands fa-hackerrank"></i> HackerRank</a></li>
+        <li><a href="linkedin.html"><i class="fa-brands fa-linkedin"></i> LinkedIn</a></li>
+        <li><a href="daily-coding.html"><i class="fa-solid fa-book"></i> Daily Coding</a></li>
+        <li><a href="certificates.html"><i class="fa-solid fa-award"></i> Certificates</a></li>
+        <li><a href="resume.html"><i class="fa-solid fa-file"></i> Resume</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li> 
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>My Certificates <i class="fa-solid fa-award"></i></h1>
+    </div>
+
+    <section class="card upload-section">
+        <h2>Upload New Certificate</h2>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="certName" placeholder="Certificate Name (e.g. AWS Cloud)">
+            <input type="file" id="file" accept=".pdf,.jpg,.png,.jpeg">
+            <button onclick="upload()"><i class="fa-solid fa-upload"></i> Upload</button>
+        </div>
+    </section>
+
+    <h3 style="color:#b0b0b0; margin-bottom:15px;">Uploaded Certificates</h3>
+    <div id="certs">
+        <p style="color: #b0b0b0;">Loading certificates...</p>
+    </div>
+</main>
+
+</body>
+</html>

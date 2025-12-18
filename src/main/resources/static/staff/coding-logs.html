@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Coding Logs | Staff</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 10s ease infinite;
+            color: #e0e0e0; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR (Standardized) --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.8); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #f39c12; /* Orange accent for coding logs */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+            flex-wrap: wrap; /* Allow wrapping for sync button */
+        }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- TABLE STYLES --- */
+        .table-container {
+            background: rgba(30, 30, 30, 0.6); 
+            border-radius: 12px;
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 30px; /* Separator from chart */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+            color: #999;
+            font-weight: 600;
+        }
+
+        td {
+            font-size: 15px;
+            color: #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .loading-message {
+            text-align: center;
+            padding: 30px;
+            font-size: 16px;
+            color: #888;
+        }
+        
+        .sync-btn {
+            background: #f39c12;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sync-btn:hover {
+            background: #d3840b;
+        }
+        .sync-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        /* --- CHART SECTION --- */
+        .chart-card {
+            background: rgba(30, 30, 30, 0.6); 
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .chart-card h2 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCodingLogs();
+            setActiveNav();
+        });
+        
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'daily-coding-logs.html') a.classList.add('active');
+            });
+        }
+
+        async function loadCodingLogs() {
+            const token = localStorage.getItem("jwt_token");
+            const tbody = document.getElementById('log-table-body');
+            const loadingRow = `<tr id="loading-row"><td colspan="5" class="loading-message"><i class="fa-solid fa-spinner fa-spin"></i> Aggregating daily log data...</td></tr>`;
+
+            if (!token) { window.location.href = "/"; return; }
+            
+            tbody.innerHTML = loadingRow;
+            
+
+            try {
+                const res = await fetch("/api/staff/coding-logs", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                // Clear loading state
+                document.getElementById('loading-row').remove();
+
+                if (!res.ok) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="loading-message" style="color:#e74c3c;"><i class="fa-solid fa-exclamation-triangle"></i> Failed to load report. API Error.</td></tr>`;
+                    throw new Error("API Error");
+                }
+
+                const report = await res.json();
+                const studentLogs = report.studentLogs || [];
+                const weeklySummary = report.weeklySummary || [];
+
+
+                if (studentLogs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="loading-message">No coding activity records found.</td></tr>`;
+                    // Initialize chart even if no students
+                    renderWeeklyChart(weeklySummary);
+                    return;
+                }
+
+                // Render table data
+                studentLogs.forEach(log => {
+                    const row = document.createElement('tr');
+                    
+                    // Format Last Logged Date
+                    const lastLog = log.lastLoggedDate ? new Date(log.lastLoggedDate).toLocaleDateString() : 'N/A';
+
+                    row.innerHTML = `
+                        <td>${log.name}</td>
+                        <td>${log.today || 0}</td>
+                        <td>${log.week || 0}</td>
+                        <td><span style="color:#2ecc71;">${log.currentStreak || 0} days</span></td>
+                        <td>${log.longestStreak || 0} days</td>
+                        <td>${lastLog}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                // Render Chart
+                renderWeeklyChart(weeklySummary);
+
+            } catch (err) {
+                console.error("Error loading coding logs:", err);
+            }
+        }
+        
+        function renderWeeklyChart(weeklySummary) {
+            const ctx = document.getElementById('weeklyChart');
+            
+            // Ensure data is sorted (it should be coming sorted by date from the API)
+            const labels = weeklySummary.map(entry => entry.day); // e.g., Mon, Tue
+            const data = weeklySummary.map(entry => entry.totalSolved);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Problems Solved',
+                        data: data,
+						
+						
+						backgroundColor: 'rgba(180, 180, 180, 0.45)',  // light gray bar
+						borderColor: 'rgba(40, 40, 40, 1)',
+						
+                        borderWidth: 2,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#333' },
+                            ticks: { color: '#e0e0e0' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#e0e0e0' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        title: { 
+                            display: true, 
+                            text: 'Class Coding Activity (Last 7 Days)',
+                            color: '#e0e0e0'
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function triggerGlobalDataRefresh() {
+            const token = localStorage.getItem("jwt_token");
+            const btn = document.getElementById('sync-button');
+
+            if (!token) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+
+            try {
+                const res = await fetch("/api/staff/trigger-refresh", {
+                    method: 'GET',
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (res.ok) {
+                    alert("Data synchronization started. The server will now fetch the latest data for all students. Please refresh the page in about 30 seconds.");
+                } else {
+                    alert("Sync failed: " + (await res.text()));
+                }
+            } catch (err) {
+                alert("Network error during sync.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-sync"></i> Manual Sync';
+            }
+        }
+        
+        function logout() { 
+            if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } 
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        <li><a href="certificate-verification.html"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        <li><a href="resume-review.html"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        <li><a href="reports.html"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Daily Coding Logs</h1>
+        <button id="sync-button" class="sync-btn" onclick="triggerGlobalDataRefresh()">
+            <i class="fa-solid fa-sync"></i> Manual Sync
+        </button>
+    </div>
+
+    <div class="chart-card">
+        <canvas id="weeklyChart"></canvas>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Solved Today</th>
+                    <th>Solved This Week</th>
+                    <th>Current Streak</th>
+                    <th>Longest Streak</th>
+                    <th>Last Log Date</th>
+                </tr>
+            </thead>
+            <tbody id="log-table-body">
+                </tbody>
+        </table>
+    </div>
+
+</main>
+
+</body>
+</html>

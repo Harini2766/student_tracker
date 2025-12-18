@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Leadership Portal</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Open Sans',sans-serif; }
+
+    body {
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:20px;
+	  background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+      background-size:200% 200%;
+      animation:bgMove 10s ease infinite;
+    }
+
+    @keyframes bgMove {
+      0%{ background-position:0 50%; }
+      50%{ background-position:100% 50%; }
+      100%{ background-position:0 50%; }
+    }
+
+    .card {
+      width:380px;
+      padding:40px;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.3);
+      border-radius:18px;
+      backdrop-filter:blur(14px);
+      color:white;
+      box-shadow:0 8px 40px rgba(0,0,0,0.45);
+      animation:fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    h2 { text-align:center; margin-bottom:25px; font-size:28px; }
+
+    .input-box { margin-bottom:15px; }
+    .input-box input {
+      width:100%;
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      font-size:15px;
+      background:rgba(255,255,255,0.15);
+      color:white;
+      outline:none;
+      transition:0.3s ease;
+    }
+    .input-box input::placeholder { color:#ddd; }
+    .input-box input:focus { background:rgba(255,255,255,0.25); }
+
+    .btn {
+      width:100%;
+      padding:12px;
+      background:white;
+      color:black;
+      font-weight:bold;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      transition:0.3s;
+      font-size:16px;
+    }
+    .btn:hover { background:#e0e0e0; }
+
+    .footer { margin-top:15px; text-align:center; font-size:14px; color:#eee; }
+    .footer a { color:white; text-decoration:underline; }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <form id="loginForm" autocomplete="off">
+      <input type="text" style="display:none">
+      <input type="password" style="display:none">
+
+      <h2>Welcome Back</h2>
+
+      <div class="input-box">
+        <input type="text" id="username" name="loginUser" autocomplete="off"
+               placeholder="Username" required>
+      </div>
+
+      <div class="input-box">
+        <input type="password" id="password" name="loginPass" autocomplete="new-password"
+               placeholder="Password" required>
+      </div>
+
+      <button class="btn" type="submit">Login</button>
+    </form>
+
+    <div class="footer">
+      Don't have an account? <a href="./auth/register.html">Register</a>
+    </div>
+  </div>
+
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function(e){
+      e.preventDefault();
+
+      const data = {
+        username: document.getElementById("username").value.trim(),
+        password: document.getElementById("password").value.trim()
+      };
+
+      // UPDATED: Uses relative path /api/auth/login to work on any port (9091)
+      fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type":"application/json"},
+        body: JSON.stringify(data)
+      })
+      .then(async res => {
+        if(res.ok){
+          const responseData = await res.json();
+          
+          // 1. Save Token and UserID for future API calls in the dashboard
+          localStorage.setItem("jwt_token", responseData.token);
+          localStorage.setItem("user_id", responseData.userId);
+          localStorage.setItem("user_role", responseData.role);
+
+          alert("Login Successful! Redirecting...");
+
+          // 2. Redirect based on Role (Staff vs Student)
+          if (responseData.role === "STAFF") {
+             window.location.href = "/staff/dashboard.html";
+          } else {
+             window.location.href = "/student/dashboard.html";
+          }
+
+        } else {
+          // Handle login error
+          const errorData = await res.json();
+          alert("Login Failed: " + (errorData.message || "Invalid credentials"));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error: Could not connect to server.");
+      });
+    });
+  </script>
+
+</body>
+</html>

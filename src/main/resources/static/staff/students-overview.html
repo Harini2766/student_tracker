@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Overview | Staff</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 10s ease infinite;
+            color: #e0e0e0; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR (Standardized) --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.8); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #2ecc71; /* Green accent */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- TABLE STYLES --- */
+        .table-container {
+            background: rgba(30, 30, 30, 0.6); 
+            border-radius: 12px;
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+            color: #999;
+            font-weight: 600;
+        }
+
+        td {
+            font-size: 15px;
+            color: #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+        }
+        
+        .loading-message {
+            text-align: center;
+            padding: 30px;
+            font-size: 16px;
+            color: #888;
+        }
+
+        .view-details {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .view-details:hover {
+            text-decoration: underline;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStudentOverview();
+            setActiveNav();
+        });
+        
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'students-overview.html') a.classList.add('active');
+            });
+        }
+
+        async function loadStudentOverview() {
+            const token = localStorage.getItem("jwt_token");
+            const tbody = document.getElementById('student-table-body');
+            const loadingRow = `<tr id="loading-row"><td colspan="5" class="loading-message"><i class="fa-solid fa-spinner fa-spin"></i> Loading student data...</td></tr>`;
+
+            if (!token) { window.location.href = "/"; return; }
+            
+            // Display loading state
+            tbody.innerHTML = loadingRow;
+            
+
+            try {
+                // NOTE: StaffService.getAllStudentsOverview() is called via this endpoint
+                const res = await fetch("/api/staff/students-overview", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                // Clear loading state
+                document.getElementById('loading-row').remove();
+
+                if (!res.ok) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="loading-message" style="color:#e74c3c;"><i class="fa-solid fa-exclamation-triangle"></i> Failed to load data. API Error.</td></tr>`;
+                    throw new Error("API Error");
+                }
+
+                const students = await res.json();
+
+                if (students.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="loading-message">No student records found.</td></tr>`;
+                    return;
+                }
+
+                // Render student data
+                students.forEach(student => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${student.fullName}</td>
+                        <td>${student.department}</td>
+                        <td>${student.email}</td>
+                        <td>${student.leetcodeSolved}</td>
+                        <td><a href="student-details.html?id=${student.userId}" class="view-details">View Details</a></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (err) {
+                console.error("Error loading student overview:", err);
+                if (tbody.querySelector('#loading-row')) {
+                    tbody.querySelector('#loading-row').innerHTML = `<td colspan="5" class="loading-message" style="color:#e74c3c;"><i class="fa-solid fa-exclamation-triangle"></i> Error fetching data. Check Console/Network.</td>`;
+                }
+            }
+        }
+        
+        function logout() { 
+            if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } 
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        <li><a href="certificate-verification.html"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        <li><a href="resume-review.html"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        <li><a href="reports.html"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Student Overview</h1>
+        <span style="background:rgba(52, 152, 219, 0.15); color:#3498db; padding:6px 15px; border-radius:20px; font-size:13px; border:1px solid #3498db;">
+            <i class="fa-solid fa-eye"></i> All Students
+        </span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Full Name</th>
+                    <th>Department</th>
+                    <th>Email</th>
+                    <th>LC Solved</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="student-table-body">
+                </tbody>
+        </table>
+    </div>
+
+</main>
+
+</body>
+</html>

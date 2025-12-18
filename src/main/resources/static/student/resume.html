@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume | Student Tracker</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL & ANIMATION (Standardized) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #121212, #1f1f1f, #2b2b2b, #121212);
+            background-size: 400% 400%;
+            animation: bgAnimation 15s ease infinite;
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- SIDEBAR (Standardized to Match Dashboard) --- */
+        .sidebar {
+            width: 260px; height: 100vh; background: rgba(20, 20, 20, 0.8);
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+        }
+        .logo { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #fff; }
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 12px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 16px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s; cursor: pointer;
+        }
+        .menu li a:hover, .menu li a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        .header { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 30px; }
+
+        /* --- ACTIONS BAR --- */
+        .action-bar {
+            background: rgba(255, 255, 255, 0.06); padding: 25px; border-radius: 12px;
+            backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 30px;
+            display: flex; gap: 15px; align-items: center; flex-wrap: wrap;
+        }
+        
+        input[type="file"] { padding: 10px; border: 1px solid #444; border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: #fff; }
+        
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-upload { background: #e67e22; color: white; }
+        .btn-upload:hover { background: #d35400; }
+        
+        /* Delete Button - Hidden by default */
+        .btn-delete { background: #e74c3c; color: white; display: none; }
+        .btn-delete:hover { background: #c0392b; }
+
+        /* --- PREVIEW --- */
+        #resumeFrame { border: 1px solid #444; border-radius: 8px; background-color: #333; display: none; }
+        .no-resume { text-align: center; padding: 50px; color: #888; border: 2px dashed #444; border-radius: 8px; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadResume();
+            setActiveNav();
+        });
+
+        // 1. LOAD RESUME
+        async function loadResume() {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) { window.location.href = "/"; return; }
+
+            const frame = document.getElementById("resumeFrame");
+            const placeholder = document.getElementById("noResumeMsg");
+            const deleteBtn = document.getElementById("deleteBtn");
+
+            try {
+                const response = await fetch("/api/resume/view", {
+                    method: 'GET',
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    
+                    frame.src = url;
+                    frame.style.display = "block";
+                    placeholder.style.display = "none";
+                    deleteBtn.style.display = "inline-flex"; // Show delete button
+                } else {
+                    // No resume found
+                    frame.style.display = "none";
+                    placeholder.style.display = "block";
+                    deleteBtn.style.display = "none"; // Hide delete button
+                }
+            } catch (err) {
+                console.error("Error loading resume:", err);
+            }
+        }
+
+        // 2. UPLOAD RESUME
+        async function uploadResume(){
+            const token = localStorage.getItem("jwt_token");
+            const fileInput = document.getElementById("resumeFile");
+            const btn = document.querySelector(".btn-upload");
+
+            if (!fileInput.files[0] || fileInput.files[0].type !== "application/pdf") {
+                alert("Please select a PDF file.");
+                return;
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch("/api/resume/upload", {
+                    method: 'POST',
+                    headers: { "Authorization": "Bearer " + token },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    alert("Resume Uploaded!");
+                    fileInput.value = "";
+                    loadResume(); // Refresh view
+                } else {
+                    alert("Upload Failed: " + await res.text());
+                }
+            } catch (err) {
+                alert("Network Error");
+            } finally {
+                btn.innerHTML = "<i class='fa-solid fa-upload'></i> Upload";
+                btn.disabled = false;
+            }
+        }
+
+        // 3. DELETE RESUME
+        async function deleteResume() {
+            if(!confirm("Are you sure you want to delete your resume?")) return;
+
+            const token = localStorage.getItem("jwt_token");
+            try {
+                const res = await fetch("/api/resume/delete", {
+                    method: 'DELETE',
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (res.ok) {
+                    alert("Resume Deleted.");
+                    loadResume(); // Refresh view to show placeholder
+                } else {
+                    alert("Failed to delete.");
+                }
+            } catch (err) {
+                alert("Error deleting resume.");
+            }
+        }
+
+        function logout() {
+            if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; }
+        }
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'resume.html') a.classList.add('active');
+            });
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo">Student</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="leetcode.html"><i class="fa-brands fa-codepen"></i> LeetCode</a></li>
+        <li><a href="github.html"><i class="fa-brands fa-github"></i> GitHub</a></li>
+        <li><a href="hackerrank.html"><i class="fa-brands fa-hackerrank"></i> HackerRank</a></li>
+        <li><a href="linkedin.html"><i class="fa-brands fa-linkedin"></i> LinkedIn</a></li>
+        <li><a href="daily-coding.html"><i class="fa-solid fa-book"></i> Daily Coding</a></li>
+        <li><a href="certificates.html"><i class="fa-solid fa-award"></i> Certificates</a></li>
+        <li><a href="resume.html"><i class="fa-solid fa-file"></i> Resume</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li> 
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Resume Management <i class="fa-solid fa-file-pdf" style="color:#e74c3c;"></i></h1>
+    </div>
+
+    <div class="action-bar">
+        <input type="file" id="resumeFile" accept=".pdf">
+        <button onclick="uploadResume()" class="btn-upload"><i class="fa-solid fa-upload"></i> Upload</button>
+        
+        <button id="deleteBtn" onclick="deleteResume()" class="btn-delete"><i class="fa-solid fa-trash"></i> Delete Resume</button>
+    </div>
+
+    <h2 style="color:#ccc; margin-bottom:15px; font-size:18px;">Resume Preview</h2>
+    
+    <iframe id="resumeFrame" width="100%" height="600" title="Resume Preview"></iframe>
+    
+    <div id="noResumeMsg" class="no-resume">
+        <h3>No Resume Uploaded Yet</h3>
+        <p>Upload a PDF file to see the preview here.</p>
+    </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register | Skill Tracker</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Open Sans',sans-serif; }
+
+    body {
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+	  background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+      background-size:200% 200%;
+      animation:bgMove 12s ease infinite;
+    }
+
+    @keyframes bgMove {
+      0% { background-position:0% 50%; }
+      50% { background-position:100% 50%; }
+      100% { background-position:0% 50%; }
+    }
+
+    .form-container {
+      width: 480px;
+      padding: 40px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      color: white;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+      animation: fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    .input-box {
+      margin-bottom: 15px;
+    }
+
+    .input-box input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    .input-box input::placeholder {
+      color: #d6d6d6;
+    }
+
+    .input-box input:focus {
+      background: rgba(255,255,255,0.25);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 18px;
+      background:white;
+      color: black;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: 0.3s ease;
+    }
+
+    button:hover {
+      background: #3d3d42;
+    }
+
+    .footer {
+      margin-top: 15px;
+      text-align: center;
+      color: #e5e5e5;
+      font-size: 14px;
+    }
+
+    .footer a {
+      color: white;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="form-container">
+
+    <form id="registerForm" autocomplete="off">
+
+      <!-- Autofill blocker -->
+      <input type="text" style="display:none">
+      <input type="password" style="display:none">
+
+      <h2>Create Account</h2>
+
+      <div class="input-box">
+        <input type="text" id="fullname" placeholder="Full Name" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="department" placeholder="Department (CSE/IT/ECE...)" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="email" id="email" placeholder="Email" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="username" placeholder="Username" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="password" id="password" placeholder="Password" autocomplete="new-password" required />
+      </div>
+
+      <div class="input-box">
+        <input type="date" id="dob" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="leetcode" placeholder="LeetCode Username" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="github" placeholder="GitHub Profile Link" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="hackerrank" placeholder="HackerRank Username" autocomplete="off" required />
+      </div>
+
+      <div class="input-box">
+        <input type="text" id="linkedin" placeholder="LinkedIn Profile URL" autocomplete="off" required />
+      </div>
+
+      <!-- Hidden Role (default STUDENT) -->
+      <input type="hidden" id="role" value="STUDENT">
+
+      <button type="submit">Register</button>
+    </form>
+
+    <div class="footer">
+      Already have an account?
+      <a href="../index.html">Login</a>
+    </div>
+
+  </div>
+
+  <script>
+      document.getElementById("registerForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        // 1. Gather data from the form
+        const data = {
+          fullname: document.getElementById("fullname").value.trim(),
+          department: document.getElementById("department").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          username: document.getElementById("username").value.trim(),
+          password: document.getElementById("password").value,
+          dob: document.getElementById("dob").value,
+          leetcodeUsername: document.getElementById("leetcode").value.trim(),
+          githubLink: document.getElementById("github").value.trim(),
+          // Make sure this ID matches your HTML input ID exactly
+          hackerrankUsername: document.getElementById("hackerrank").value.trim(), 
+          linkedinLink: document.getElementById("linkedin").value.trim(),
+          role: "STUDENT"
+        };
+
+        // 2. Send to Backend (Using relative path so it works on port 9091)
+        fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        })
+        .then(async response => {
+          // 3. Check if the request was successful
+          if (response.ok) {
+             const json = await response.json();
+             alert("Registration successful!");
+             window.location.href = "/"; // Redirect to login
+          } else {
+             // If error (like 'Username taken'), show the message from backend
+             const errorText = await response.text();
+             alert("Registration Failed: " + errorText);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Error: Could not connect to server. Check console for details.");
+        });
+      });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,79 @@
+/* ------------------------------
+   THEME VARIABLES
+------------------------------*/
+
+:root {
+  --bg-color: #0d1117;          /* dark navy blue */
+  --bg-secondary: #161b22;
+  --text-color: #e6edf3;
+  --accent-color: #3b82f6;      /* blue */
+  --card-bg: #1d2430;
+  --sidebar-bg: #0b0f16;
+  --sidebar-hover: #2a303b;
+}
+
+/* LIGHT MODE */
+.light {
+  --bg-color: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --text-color: #1a1a1a;
+  --card-bg: #ffffff;
+  --sidebar-bg: #eaeef3;
+  --sidebar-hover: #d9dce1;
+}
+
+/* ------------------------------
+   GLOBAL STYLES
+------------------------------*/
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  transition: background 0.3s, color 0.3s;
+}
+
+h1, h2, h3 {
+  margin: 0 0 15px 0;
+}
+
+.center-card {
+  width: 350px;
+  margin: 80px auto;
+  padding: 25px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+input, select {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  background: var(--bg-secondary);
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: var(--text-color);
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+button:hover {
+  opacity: 0.9;
+}
+
+/* Main content layout */
+.main-content {
+  margin-left: 270px;
+  padding: 20px;
+  transition: 0.3s;
+}

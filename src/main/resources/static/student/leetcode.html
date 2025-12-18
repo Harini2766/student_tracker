@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode Stats | Student Tracker</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- GLOBAL & ANIMATION (MATCHING DASHBOARD) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: "Poppins", sans-serif;
+            background: linear-gradient(-45deg, #121212, #1f1f1f, #2b2b2b, #121212);
+            background-size: 400% 400%;
+            animation: bgAnimation 15s ease infinite;
+            color: #e0e0e0;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- SIDEBAR (EXACT MATCH) --- */
+        .sidebar {
+            width: 260px; height: 100vh; background: rgba(20, 20, 20, 0.8);
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+        }
+        .logo { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #fff; }
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 12px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 16px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s; cursor: pointer;
+        }
+        .menu li a:hover, .menu li a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- LEETCODE SPECIFIC STYLES --- */
+        .btn-refresh {
+            background: #ffa116; color: white; border: none; padding: 10px 20px;
+            border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .btn-refresh:hover { background: #e08c00; transform: scale(1.05); }
+        .btn-refresh:disabled { background: #555; cursor: not-allowed; }
+
+        .card {
+            background: rgba(30, 30, 30, 0.6); padding: 22px;
+            border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px; backdrop-filter: blur(10px);
+        }
+
+        .leetcode-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px; }
+        .leetcode-stat { text-align: center; }
+        .leetcode-stat h3 { margin-top: 0; font-size: 14px; color: #aaa; margin-bottom: 5px; }
+        .leetcode-stat p { font-size: 32px; font-weight: 700; margin: 0; }
+        
+        /* Specific Colors */
+        .easy p { color: #00b8a3; } 
+        .medium p { color: #ffc01e; } 
+        .hard p { color: #ff375f; }
+        .rank p { color: #fff; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStatsFromDB(); 
+            setActiveNav();
+        });
+
+        let myChart = null;
+
+        function loadStatsFromDB() {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) { window.location.href = "/"; return; }
+
+            fetch("/api/leetcode/stats", {
+                method: "GET",
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(res => res.json())
+            .then(data => updateUI(data))
+            .catch(err => console.error("Load Error:", err));
+        }
+
+        function triggerRefresh() {
+            const token = localStorage.getItem("jwt_token");
+            const btn = document.querySelector(".btn-refresh");
+            
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing...';
+            btn.disabled = true;
+
+            fetch("/api/leetcode/refresh", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(async response => {
+                if (response.ok) {
+                    loadStatsFromDB(); 
+                    alert("Data updated successfully!");
+                } else {
+                    const text = await response.text();
+                    alert("Failed to refresh: " + text);
+                }
+            })
+            .catch(err => alert("Error connecting to server"))
+            .finally(() => {
+                btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh Data';
+                btn.disabled = false;
+            });
+        }
+
+        function updateUI(data) {
+            document.getElementById('lcTotal').innerText = data.totalSolved || 0;
+            document.getElementById('lcEasy').innerText = data.easySolved || 0;
+            document.getElementById('lcMedium').innerText = data.mediumSolved || 0;
+            document.getElementById('lcHard').innerText = data.hardSolved || 0;
+            document.getElementById('lcRank').innerText = data.ranking ? "#" + data.ranking.toLocaleString() : "N/A";
+            document.getElementById('lcAcceptance').innerText = data.acceptanceRate || "0%";
+            document.getElementById('lcPoints').innerText = data.contributionPoints || 0;
+
+            if (data.submissionCalendar) {
+                renderChart(data.submissionCalendar);
+            }
+        }
+
+        function renderChart(calendarJsonString) {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            let calendarData = {};
+
+            try { calendarData = JSON.parse(calendarJsonString); } catch (e) { return; }
+
+            const labels = [];
+            const dataPoints = [];
+            
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                d.setHours(0,0,0,0);
+                
+                labels.push(`${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}`);
+                
+                let count = 0;
+                const startOfDay = d.getTime() / 1000;
+                const endOfDay = startOfDay + 86400;
+
+                Object.keys(calendarData).forEach(ts => {
+                    const timestamp = parseInt(ts);
+                    if (timestamp >= startOfDay && timestamp < endOfDay) {
+                        count += calendarData[ts];
+                    }
+                });
+                dataPoints.push(count);
+            }
+
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'TotalSubmission',
+                        data: dataPoints,
+                        borderColor: '#ffa116',
+                        backgroundColor: 'rgba(255, 161, 22, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#333' }, ticks: { color: '#bbb'} },
+                        x: { grid: { display: false }, ticks: { color: '#bbb'} }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function logout() { if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } }
+     
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'leetcode.html') {
+                    a.classList.add('active');
+                }
+            });
+        }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo">Student</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="leetcode.html"><i class="fa-brands fa-codepen"></i> LeetCode</a></li>
+        <li><a href="github.html"><i class="fa-brands fa-github"></i> GitHub</a></li>
+        <li><a href="hackerrank.html"><i class="fa-brands fa-hackerrank"></i> HackerRank</a></li>
+        <li><a href="linkedin.html"><i class="fa-brands fa-linkedin"></i> LinkedIn</a></li>
+        <li><a href="daily-coding.html"><i class="fa-solid fa-book"></i> Daily Coding</a></li>
+        <li><a href="certificates.html"><i class="fa-solid fa-award"></i> Certificates</a></li>
+        <li><a href="resume.html"><i class="fa-solid fa-file"></i> Resume</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li> 
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>LeetCode Performance <i class="fa-brands fa-codepen" style="color:#ffa116;"></i></h1>
+        <button class="btn-refresh" onclick="triggerRefresh()">
+            <i class="fa-solid fa-rotate"></i> Refresh Data
+        </button>
+    </div>
+
+    <section class="card" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h2 style="font-size: 16px; color: #aaa; margin-bottom:5px;">Total Problems Solved</h2>
+            <span id="lcTotal" style="font-size: 42px; color: #fff; font-weight: 700;">Loading...</span>
+        </div>
+        <div style="text-align:right;">
+            <h2 style="font-size: 16px; color: #aaa; margin-bottom:5px;">Global Ranking</h2>
+            <span id="lcRank" style="font-size: 32px; color: #ffa116; font-weight: 700;">Loading...</span>
+        </div>
+    </section>
+
+    <section class="leetcode-grid">
+        <div class="card leetcode-stat easy">
+            <h3>Easy</h3> <p id="lcEasy">0</p>
+        </div>
+        <div class="card leetcode-stat medium">
+            <h3>Medium</h3> <p id="lcMedium">0</p>
+        </div>
+        <div class="card leetcode-stat hard">
+            <h3>Hard</h3> <p id="lcHard">0</p>
+        </div>
+        <div class="card leetcode-stat">
+            <h3>Acceptance</h3> <p id="lcAcceptance" style="font-size: 28px; color: #ddd;">0%</p>
+        </div>
+    </section>
+
+    <section class="card">
+        <h3 style="color: #b0b0b0; margin-bottom: 20px;">Activity Graph (Last 30 Days)</h3>
+        <div style="height: 300px; width: 100%;">
+            <canvas id="activityChart"></canvas>
+        </div>
+    </section>
+
+    <section class="card" style="display:flex; gap:40px;">
+        <div>
+            <span style="color:#aaa;">Total Active Days:</span>
+            <span id="lcPoints" style="font-weight:bold; color:white; margin-left:10px;">0</span>
+        </div>
+        <div>
+            <span style="color:#aaa;">Status:</span>
+            <span style="font-weight:bold; color:#63c76a; margin-left:10px;">Active</span>
+        </div>
+    </section>
+
+</main>
+</body>
+</html>

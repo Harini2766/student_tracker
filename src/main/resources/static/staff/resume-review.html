@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Review | Staff</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 10s ease infinite;
+            color: #e0e0e0; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.8); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #2ecc71; /* Green accent */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- RESUME GRID --- */
+        .resume-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); /* Wider cards for PDFs */
+            gap: 30px;
+        }
+
+        /* --- CARD STYLE --- */
+        .card {
+            background: rgba(30, 30, 30, 0.6); 
+            padding: 20px;
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(6px);
+            display: flex; flex-direction: column;
+            transition: transform 0.2s;
+        }
+        
+        .card h3 { color: #fff; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .pdf-container {
+            width: 100%; height: 350px;
+            background: #222; border-radius: 8px;
+            border: 1px solid #444;
+            margin-bottom: 15px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* Loading/Error Text inside PDF Container */
+        .pdf-message { color: #aaa; font-size: 14px; text-align: center; }
+
+
+        .btn-group { display: none; } /* HIDDEN: Remove buttons */
+        
+        button {
+            flex: 1; padding: 12px; border: none; border-radius: 6px;
+            font-weight: 600; cursor: pointer; font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+
+        .btn-approve { background: #2ecc71; color: #000; }
+        .btn-reject { background: #e74c3c; color: #fff; }
+        
+        .view-link { font-size: 12px; color: #3498db; text-decoration: none; font-weight: 400; }
+        .view-link:hover { text-decoration: underline; }
+
+        #status-message { color: #aaa; margin-bottom: 20px; font-style: italic; }
+    </style>
+
+	<script>
+	        document.addEventListener('DOMContentLoaded', () => {
+	            loadResumes();
+	        });
+
+	        async function loadResumes() {
+	            const token = localStorage.getItem("jwt_token");
+	            const statusMsg = document.getElementById('status-message');
+	            const container = document.getElementById('resume-container');
+
+	            if (!token) { window.location.href = "/"; return; }
+
+	            try {
+	                statusMsg.textContent = "Fetching all resumes...";
+	                
+	                // CRITICAL FIX: Endpoint changed to /api/staff/resumes/all
+	                const res = await fetch("/api/staff/resumes/all", {
+	                    headers: { "Authorization": "Bearer " + token }
+	                });
+
+	                if (!res.ok) throw new Error("API Error");
+
+	                const data = await res.json();
+	                statusMsg.textContent = ""; 
+					container.innerHTML = ""; // <--- Solves Duplicates
+
+	                if (data.length === 0) {
+	                    statusMsg.innerHTML = "<i class='fa-solid fa-info-circle' style='color:#3498db'></i> No resumes uploaded yet.";
+	                    return;
+	                }
+	                
+	                // Find total count
+	                const totalCount = data.length;
+
+	                // Render Securely
+	                data.forEach(r => {
+	                    container.appendChild(createResumeCard(r));
+	                });
+	                
+                    // *** UI FIX: Simplified Status Message ***
+	                statusMsg.innerHTML = `<i class='fa-solid fa-file-pdf' style='color:#3498db'></i> Showing all ${totalCount} resumes.`;
+	                
+
+
+	            } catch (err) {
+	                console.error(err);
+	                statusMsg.textContent = "Error loading data. Check server logs.";
+	                statusMsg.style.color = "#e74c3c";
+	            }
+	        }
+
+	        // Helper to create safe DOM elements
+	        function createResumeCard(r) {
+	            const card = document.createElement('div');
+	            card.className = 'card';
+	            card.id = `resume-${r.id}`;
+
+	            // Header
+	            const h3 = document.createElement('h3');
+	            h3.innerHTML = `<span><i class="fa-solid fa-user-circle"></i> ${r.student}</span>`; // Name
+	            
+	            // View Full Screen Link
+	            const link = document.createElement('a');
+	            link.href = "#"; 
+	            link.target = "_blank";
+	            link.className = "view-link";
+                // CRITICAL CHANGE: Call a function to open the PDF securely
+	            link.onclick = (e) => { 
+                    e.preventDefault(); 
+                    openPdfInNewTab(r.id); 
+                };
+	            link.innerHTML = 'View Full <i class="fa-solid fa-external-link-alt"></i>';
+	            
+	            h3.appendChild(link);
+
+	            // PDF Preview (iFrame)
+	            const pdfBox = document.createElement('div');
+	            pdfBox.className = 'pdf-container';
+	            
+	            const iframe = document.createElement('iframe');
+                iframe.id = `iframe-${r.id}`; 
+	            iframe.src = "about:blank"; // Placeholder
+	            
+                const message = document.createElement('div');
+                message.className = 'pdf-message';
+                message.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';
+
+                pdfBox.appendChild(message);
+                pdfBox.appendChild(iframe);
+                
+	            // Load the PDF blob into the iframe securely
+	            loadPdfBlob(r.id, iframe, message); 
+
+	            // Buttons (Hidden via CSS, but structure remains)
+	            const btnGroup = document.createElement('div');
+	            btnGroup.className = 'btn-group';
+
+	            // Assemble
+	            card.append(h3, pdfBox, btnGroup);
+	            return card;
+	        }
+            
+            // *** Loads PDF into iframe securely (This is the solution to 403) ***
+            async function loadPdfBlob(resumeId, iframeElement, messageElement) {
+                const token = localStorage.getItem("jwt_token");
+                messageElement.style.display = 'block';
+                iframeElement.style.display = 'none';
+                
+                try {
+                    const response = await fetch(`/api/resume/download/${resumeId}`, {
+                        method: 'GET',
+                        headers: { "Authorization": "Bearer " + token }
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        
+                        iframeElement.src = url;
+                        iframeElement.style.display = 'block';
+                        messageElement.style.display = 'none';
+                    } else if (response.status === 404) {
+                        messageElement.innerHTML = '<i class="fa-solid fa-times-circle" style="color:#e74c3c;"></i> File Not Found (404)';
+                    } else if (response.status === 403) {
+                         messageElement.innerHTML = '<i class="fa-solid fa-lock" style="color:#e74c3c;"></i> Access Denied (403). Relogin.';
+                    }
+                } catch (err) {
+                    messageElement.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:#f1c40f;"></i> Error Loading PDF.';
+                    console.error(`Error loading resume ${resumeId}:`, err);
+                }
+            }
+
+            // *** Opens PDF in new tab securely (Solves 403 on 'View Full') ***
+            async function openPdfInNewTab(resumeId) {
+                const token = localStorage.getItem("jwt_token");
+                try {
+                    const response = await fetch(`/api/resume/download/${resumeId}`, {
+                        method: 'GET',
+                        headers: { "Authorization": "Bearer " + token }
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        // Open the blob URL in a new tab
+                        window.open(url, '_blank');
+                    } else if (response.status === 403) {
+                        alert("Failed to open resume: Authentication Denied (403). Please relogin.");
+                    } else {
+                        alert("Failed to open resume: File not available.");
+                    }
+                } catch (err) {
+                    alert("Failed to open resume: Network Error.");
+                }
+            }
+
+
+	        // NOTE: processResume is no longer needed since the buttons are removed.
+	        /* async function processResume(id, action) { ... } */
+
+	        function logout() { if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } }
+	    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        <li><a href="certificate-verification.html"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        
+        <li><a href="resume-review.html" class="active"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        
+        <li><a href="reports.html"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Resume Review</h1>
+        <span style="background:rgb(128, 128, 128); color:rgb(0, 0, 64); padding:6px 15px; border-radius:20px; font-size:13px; border:1px solid rgb(0, 0, 64);">
+            <i class="fa-solid fa-glasses"></i> Student Resumes
+        </span>
+    </div>
+
+    <div id="status-message"></div>
+
+    <div id="resume-container" class="resume-grid">
+        </div>
+</main>
+
+</body>
+</html>

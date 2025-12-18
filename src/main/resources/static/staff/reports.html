@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Insights | Staff</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        /* (Your standard global and sidebar CSS remains here) */
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 10s ease infinite;
+            color: #e0e0e0; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.8); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #2ecc71; /* Green accent */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- REPORTS GRID --- */
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .charts-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        /* --- CARD STYLE --- */
+        .card {
+            background: rgba(30, 30, 30, 0.6); 
+            padding: 30px;
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(6px);
+            transition: transform 0.3s;
+        }
+        .card:hover { border-color: #3498db; }
+
+        .icon-box {
+            width: 60px; height: 60px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 24px;
+        }
+        
+        .report-title { font-size: 20px; color: #3498db; margin-bottom: 20px; }
+
+        .card h3 { font-size: 18px; color: #fff; margin-bottom: 10px; text-align: center; }
+        .card p { font-size: 13px; color: #aaa; margin-bottom: 25px; line-height: 1.6; text-align: center; }
+
+        .btn-download {
+            background: #2ecc71; color: #fff; border: none;
+            padding: 12px 25px; border-radius: 6px;
+            font-weight: 600; cursor: pointer;
+            transition: 0.2s; width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-download:hover { background: #27ae60; }
+        .btn-download:disabled { background: #555; cursor: not-allowed; }
+
+        .btn-analyze {
+            background: #3498db; color: #fff; border: none;
+            padding: 8px 15px; border-radius: 6px;
+            font-weight: 600; cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-analyze:hover { background: #2980b9; }
+
+        /* Specific Colors for Card Types */
+        .card.monthly .icon-box { color: #f39c12; background: rgba(243, 156, 18, 0.1); }
+        .card.dept .icon-box { color: #e74c3c; background: rgba(231, 76, 60, 0.1); }
+        .card.master .icon-box { color: #2ecc71; background: rgba(46, 204, 113, 0.1); }
+        .chart-card { min-height: 450px; }
+        
+        .loading-message { text-align: center; padding: 20px; color: #aaa; }
+
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDepartmentGrowthData();
+            setActiveNav();
+        });
+        
+        function setActiveNav() {
+            document.querySelectorAll('.sidebar a').forEach(a => {
+                if (a.getAttribute('href') === 'reports.html') a.classList.add('active');
+            });
+        }
+        
+        // --- 1. Client-Side CSV Generator (Uses fetched data) ---
+        function convertToCSV(data, filename) {
+            if (!data || data.length === 0) {
+                alert("No data available to export.");
+                return;
+            }
+
+            const header = Object.keys(data[0]);
+            const csvRows = [];
+            
+            // Add header row
+            csvRows.push(header.join(','));
+            
+            // Add data rows
+            for (const row of data) {
+                const values = header.map(h => {
+                    const escaped = ('' + row[h]).replace(/"/g, '\\"');
+                    return `"${escaped}"`;
+                });
+                csvRows.push(values.join(','));
+            }
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) { 
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert("Your browser does not support CSV download.");
+            }
+        }
+        
+        // --- 2. Secure Fetch Report Logic (For data extraction) ---
+        async function fetchReportData(endpoint, type, filename) {
+            const token = localStorage.getItem("jwt_token");
+            const btn = document.getElementById(`btn-${type}`);
+            const originalText = btn.innerHTML;
+
+            if (!token) { window.location.href = "/"; return; }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Fetching Data...';
+
+                const res = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!res.ok) throw new Error("API failed: " + res.status);
+
+                const data = await res.json();
+                
+                // Use the client-side helper to convert JSON to CSV and trigger download
+                convertToCSV(data, filename);
+
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Download Complete';
+                setTimeout(() => { btn.disabled = false; btn.innerHTML = originalText; }, 3000);
+
+            } catch (err) {
+                console.error("Report Fetch Error:", err);
+                alert("Error downloading report data. Please check console.");
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+        
+        // --- 3. Department Growth Chart (Visualization) ---
+        async function loadDepartmentGrowthData() {
+            const token = localStorage.getItem("jwt_token");
+            const chartDiv = document.getElementById('department-chart-container');
+            chartDiv.innerHTML = '<div class="loading-message"><i class="fa-solid fa-spinner fa-spin"></i> Loading Department Analysis...</div>';
+
+            if (!token) { chartDiv.innerHTML = '<div class="loading-message">Authentication Error.</div>'; return; }
+
+            try {
+                const res = await fetch("/api/staff/reports/department-growth", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!res.ok) throw new Error("Failed to load department data.");
+
+                const departments = await res.json();
+                
+                if (departments.length === 0) {
+                    chartDiv.innerHTML = '<div class="loading-message">No department data found.</div>';
+                    return;
+                }
+                
+                chartDiv.innerHTML = '<canvas id="departmentGrowthChart" style="max-height: 400px;"></canvas>';
+                renderDepartmentChart(departments);
+
+            } catch (err) {
+                console.error("Department Growth Load Error:", err);
+                chartDiv.innerHTML = '<div class="loading-message" style="color:#e74c3c;"><i class="fa-solid fa-exclamation-triangle"></i> Failed to load chart data.</div>';
+            }
+        }
+        
+        function renderDepartmentChart(departments) {
+            const ctx = document.getElementById('departmentGrowthChart');
+            const names = departments.map(d => d.departmentName);
+            const scores = departments.map(d => d.currentAverageGrade);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: names,
+                    datasets: [{
+                        label: 'Average Overall Grade (Out of 1000)',
+                        data: scores,
+                        backgroundColor: [
+                            'rgba(52, 152, 219, 0.7)',
+                            'rgba(230, 126, 34, 0.7)',
+                            'rgba(46, 204, 113, 0.7)',
+                            'rgba(155, 89, 182, 0.7)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1000,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#e0e0e0' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#e0e0e0' }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            position: 'top', 
+                            labels: { color: '#e0e0e0' }
+                        },
+                        title: { 
+                            display: true, 
+                            text: 'Department Average Performance Comparison',
+                            color: '#fff'
+                        }
+                    }
+                }
+            });
+        }
+
+
+        function logout() { if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        <li><a href="certificate-verification.html"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        <li><a href="resume-review.html"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        
+        <li><a href="reports.html" class="active"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Reports & Insights</h1>
+        <span style="background:rgba(255, 255, 255, 0.1); color:#fff; padding:6px 15px; border-radius:20px; font-size:13px; border:1px solid #444;">
+            <i class="fa-solid fa-chart-line"></i> Data Visualization
+        </span>
+    </div>
+    
+    <h2 class="report-title">📈 Department Performance Analysis</h2>
+    <div class="charts-container">
+        
+        <div class="card chart-card" style="grid-column: span 2;">
+            <div id="department-chart-container">
+                <div class="loading-message">Loading Department Analysis...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <hr style="border-top: 1px solid #444; margin: 40px 0;">
+
+    <h2 class="report-title">⬇️ Data Export Sheets</h2>
+
+    <div class="reports-grid">
+        
+        <div class="card monthly">
+            <div class="icon-box"><i class="fa-solid fa-calendar-alt"></i></div>
+            <h3>Monthly Skill Report</h3>
+            <p>Export of all key student metrics (LC, HR, Certs, Grade) for monthly review.</p>
+            <button id="btn-monthly" class="btn-download" 
+                    onclick="fetchReportData('/api/staff/reports/monthly-skill', 'monthly', 'Monthly_Skill_Report.csv')">
+                <i class="fa-solid fa-file-csv"></i> Download Raw CSV
+            </button>
+        </div>
+
+        <div class="card dept">
+            <div class="icon-box"><i class="fa-solid fa-users"></i></div>
+            <h3>Department Growth Data</h3>
+            <p>Raw data used for the Department-Wise Skill Growth comparison chart.</p>
+            <button id="btn-dept" class="btn-download" 
+                    onclick="fetchReportData('/api/staff/reports/department-growth', 'dept', 'Department_Growth_Raw.csv')">
+                <i class="fa-solid fa-file-csv"></i> Download Raw CSV
+            </button>
+        </div>
+
+        <div class="card master">
+            <div class="icon-box"><i class="fa-solid fa-file-invoice"></i></div>
+            <h3>Full Student Master Sheet</h3>
+            <p>Comprehensive, all-inclusive master data sheet for annual analysis (including status).</p>
+            <button id="btn-master" class="btn-download" 
+                    onclick="fetchReportData('/api/staff/reports/master-sheet', 'master', 'Student_Master_Sheet.csv')">
+                <i class="fa-solid fa-file-csv"></i> Download Master CSV
+            </button>
+        </div>
+
+    </div>
+</main>
+
+</body>
+</html>

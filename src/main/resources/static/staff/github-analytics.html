@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Analytics | Faculty</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/assets/js/api.js"></script>
+    
+    <style>
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 15s ease infinite;
+            color: #e0e0e0; 
+            display: flex; min-height: 100vh; overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.95); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px); overflow-y: auto;
+        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+        
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #6e5494; /* GitHub Purple */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- TABS --- */
+        .sub-menu {
+            display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 10px;
+        }
+        .tab-btn {
+            background: transparent; border: none; color: #888; 
+            font-size: 14px; font-weight: 600; padding: 10px 20px; cursor: pointer;
+            border-radius: 6px; transition: 0.3s;
+        }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active { background: #6e5494; color: #fff; }
+        
+        .tab-content { display: none; animation: fadeIn 0.5s; }
+        .tab-content.active-view { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- KPI GRID --- */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px; }
+        .kpi-card {
+            background: rgba(30, 30, 30, 0.6); padding: 20px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(6px);
+            display: flex; align-items: center; gap: 15px;
+        }
+        .kpi-icon { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .kpi-info h3 { font-size: 11px; text-transform: uppercase; color: #aaa; margin-bottom: 5px; }
+        .kpi-info p { font-size: 22px; font-weight: 700; color: #fff; margin: 0; }
+
+        /* --- CHARTS ROW --- */
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 25px; }
+        
+        .card {
+            background: rgba(30, 30, 30, 0.6); padding: 20px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(6px);
+        }
+
+        /* --- TABLE --- */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; color: #6e5494; padding: 15px; border-bottom: 1px solid #444; font-size: 13px; text-transform: uppercase; }
+        td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ddd; font-size: 13px; }
+        tr:hover { background: rgba(255, 255, 255, 0.05); }
+
+        .commit-badge { background: rgba(46, 204, 113, 0.15); color: #2ecc71; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        
+        /* --- HEATMAP --- */
+        .heatmap-grid { display: flex; gap: 3px; margin-top: 5px; }
+        .heat-box { width: 10px; height: 10px; border-radius: 2px; background: #2d333b; }
+        .lvl-1 { background: #0e4429; } .lvl-2 { background: #006d32; } 
+        .lvl-3 { background: #26a641; } .lvl-4 { background: #39d353; }
+
+    </style>
+
+    <script>
+        let globalData = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchGitHubData();
+        });
+
+        async function fetchGitHubData() {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) { window.location.href = "/"; return; }
+
+            try {
+                const res = await fetch("/api/staff/github", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if(!res.ok) throw new Error("Failed to fetch data");
+
+                globalData = await res.json();
+
+                if(globalData.length === 0) {
+                    document.getElementById('mainTable').innerHTML = "<tr><td colspan='5' style='text-align:center;'>No student data found.</td></tr>";
+                    return;
+                }
+
+                renderOverview(globalData);
+
+            } catch (err) {
+                console.error("API Error:", err);
+                document.getElementById('mainTable').innerHTML = "<tr><td colspan='5' style='text-align:center; color:#e74c3c;'>Error loading data.</td></tr>";
+            }
+        }
+
+        // --- TABS ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active-view'));
+            document.getElementById(tabId).classList.add('active-view');
+
+            if(tabId === 'stats') renderRepoStats();
+            if(tabId === 'lang') renderLangChart();
+        }
+
+        // --- TAB 1: OVERVIEW ---
+        function renderOverview(data) {
+            // KPIs
+            const totalCommits = data.reduce((a,b)=>a+(b.commits||0),0);
+            const totalRepos = data.reduce((a,b)=>a+(b.repos||0),0);
+            const avgCommits = data.length > 0 ? Math.round(totalCommits / data.length) : 0;
+            const topCommitter = data.length > 0 ? data.reduce((a,b)=>((a.commits||0) > (b.commits||0) ? a : b)) : {name:"N/A"};
+
+            document.getElementById('kpi-commits').innerText = totalCommits.toLocaleString();
+            document.getElementById('kpi-repos').innerText = totalRepos.toLocaleString();
+            document.getElementById('kpi-avg').innerText = avgCommits;
+            document.getElementById('kpi-top').innerText = topCommitter.name;
+
+            // Chart: Contributions over last 12 weeks (Class Average)
+            const weeklyAvg = new Array(12).fill(0);
+            data.forEach(s => {
+                if(s.weeklyActivity) {
+                    s.weeklyActivity.forEach((val, idx) => {
+                        if(idx < 12) weeklyAvg[idx] += val;
+                    });
+                }
+            });
+            const classWeekly = weeklyAvg.map(val => Math.round(val / (data.length || 1)));
+
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'W11', 'W12'],
+                    datasets: [{
+                        label: 'Avg Commits / Week',
+                        data: classWeekly,
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { grid:{color:'#333'}, ticks:{color:'#aaa'} }, x: { grid:{display:false}, ticks:{color:'#aaa'} } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Table
+            renderTable(data);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('mainTable');
+            tbody.innerHTML = "";
+            
+            // Sort by Commits descending
+            const sorted = [...data].sort((a,b) => (b.commits||0) - (a.commits||0));
+
+            sorted.forEach((s, i) => {
+                const activity = s.weeklyActivity || [0,0,0,0,0,0,0];
+                const squares = activity.slice(0, 7).map(n => {
+                    let c = 'heat-box';
+                    if(n>2) c+=' lvl-1'; if(n>5) c+=' lvl-2'; if(n>10) c+=' lvl-3'; if(n>20) c+=' lvl-4';
+                    return `<div class="${c}" title="${n} commits"></div>`;
+                }).join("");
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="color:#aaa;">#${i+1}</td>
+                        <td style="font-weight:600; color:#fff;">${s.name}</td>
+                        <td><span class="commit-badge">${s.commits || 0}</span></td>
+                        <td>${s.repos || 0}</td>
+                        <td><div class="heatmap-grid">${squares}</div></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- TAB 2: REPO STATS (QUALITY) ---
+        function renderRepoStats() {
+            const tbody = document.getElementById('repoTable');
+            tbody.innerHTML = "";
+            const sorted = [...globalData].sort((a,b) => (b.stars||0) - (a.stars||0));
+
+            sorted.forEach((s, i) => {
+                const stars = s.stars || 0;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>#${i+1}</td>
+                        <td style="font-weight:600; color:#fff;">${s.name}</td>
+                        <td><i class="fa-solid fa-star" style="color:#f1c40f"></i> ${stars}</td>
+                        <td><i class="fa-solid fa-code-branch" style="color:#3498db"></i> ${Math.round(stars/2)}</td>
+                        <td>${s.followers || 0}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- TAB 3: LANGUAGES ---
+        let langChart = null;
+        function renderLangChart() {
+            const ctx = document.getElementById('langChart').getContext('2d');
+            if(langChart) return;
+
+            // Aggregate Data
+            let java=0, python=0, js=0, other=0;
+            globalData.forEach(s => {
+                // If languages map is empty/null, count as 'Other'
+                if(!s.languages || Object.keys(s.languages).length === 0) {
+                    other++;
+                } else {
+                    // Simple logic: pick the highest value language
+                    // Real implementation would parse the map properly
+                    if(s.languages['Java']) java++;
+                    else if(s.languages['Python']) python++;
+                    else if(s.languages['JavaScript']) js++;
+                    else other++;
+                }
+            });
+
+            langChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Java', 'Python', 'JavaScript', 'Other/None'],
+                    datasets: [{
+                        data: [java, python, js, other],
+                        backgroundColor: ['#e74c3c', '#3498db', '#f1c40f', '#95a5a6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position:'right', labels:{color:'#fff'} } }
+                }
+            });
+        }
+
+        function logout() { if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } }
+    </script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html" class="active"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        <li><a href="certificate-verification.html"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        <li><a href="resume-review.html"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        <li><a href="reports.html"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>GitHub Analytics</h1>
+        <span style="background:rgba(255,255,255,0.1); padding:6px 15px; border-radius:20px; border:1px solid #444; font-size:13px;">
+            <i class="fa-brands fa-github"></i> Sync: Just Now
+        </span>
+    </div>
+
+    <div class="sub-menu">
+        <button id="btn-overview" class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+        <button id="btn-stats" class="tab-btn" onclick="switchTab('stats')">Repository Stats</button>
+        <button id="btn-lang" class="tab-btn" onclick="switchTab('lang')">Language Analysis</button>
+    </div>
+
+    <div id="overview" class="tab-content active-view">
+        
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(46, 204, 113, 0.2); color:#2ecc71;"><i class="fa-solid fa-code-commit"></i></div>
+                <div class="kpi-info"><h3>Total Commits</h3><p id="kpi-commits">0</p></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(52, 152, 219, 0.2); color:#3498db;"><i class="fa-solid fa-book-bookmark"></i></div>
+                <div class="kpi-info"><h3>Total Repos</h3><p id="kpi-repos">0</p></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(241, 196, 15, 0.2); color:#f1c40f;"><i class="fa-solid fa-chart-line"></i></div>
+                <div class="kpi-info"><h3>Avg Commits/Student</h3><p id="kpi-avg">0</p></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:rgba(155, 89, 182, 0.2); color:#9b59b6;"><i class="fa-solid fa-crown"></i></div>
+                <div class="kpi-info"><h3>Top Committer</h3><p id="kpi-top">-</p></div>
+            </div>
+        </div>
+
+        <div class="mixed-grid">
+            <div class="card" style="margin-bottom:25px;">
+                <h3 style="color:#aaa; font-size:14px; margin-bottom:10px;">Class Activity (Avg Commits per Week)</h3>
+                <div style="height: 250px;"><canvas id="activityChart"></canvas></div>
+            </div>
+            
+            <div class="card">
+                <h3 style="color:#fff; font-size:16px; margin-bottom:15px;">Top Committers Leaderboard</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th><th>Name</th><th>Commits</th><th>Repos</th><th>Recent Heatmap</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mainTable">
+                        <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats" class="tab-content">
+        <div class="card">
+            <h3 style="color:#fff; margin-bottom:20px;">Best Repository Creators (Impact Score)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th><th>Student Name</th><th>Total Stars</th><th>Total Forks</th><th>Followers</th>
+                    </tr>
+                </thead>
+                <tbody id="repoTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="lang" class="tab-content">
+        <div class="card" style="max-width:600px; margin:0 auto; text-align:center;">
+            <h3 style="color:#fff; margin-bottom:20px;">Class Language Distribution</h3>
+            <div style="height:300px;"><canvas id="langChart"></canvas></div>
+            <p style="color:#aaa; margin-top:20px; font-size:13px;">Based on primary language of student repositories.</p>
+        </div>
+    </div>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Certificates | Staff</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <style>
+        /* --- GLOBAL DARK THEME --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: "Poppins", sans-serif; 
+            background: linear-gradient(-45deg, #0d0d0d, #1b1b1b, #2d2d2d, #1a1a1a);
+            background-size: 400% 400%;
+            animation: bgAnimation 10s ease infinite;
+            color: #e0e0e0; 
+            display: flex; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        @keyframes bgAnimation { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; height: 100vh; 
+            background: rgba(20, 20, 20, 0.8); 
+            padding: 20px; border-right: 1px solid #333;
+            position: fixed; top: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+        
+        /* Custom Scrollbar for Sidebar */
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+        .logo { text-align: center; margin-bottom: 25px; font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .menu { list-style: none; padding: 0; }
+        .menu li { margin: 8px 0; }
+        .menu li a {
+            color: #b0b0b0; text-decoration: none; font-size: 14px; display: flex; gap: 12px;
+            align-items: center; padding: 10px 15px; border-radius: 8px; transition: 0.3s;
+        }
+        .menu li a:hover, .menu li a.active { 
+            background: rgba(255, 255, 255, 0.1); color: #fff; 
+            border-left: 3px solid #2ecc71; /* Green accent */
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main { margin-left: 260px; width: calc(100% - 260px); padding: 40px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+
+        /* --- CERTIFICATE GRID --- */
+        .cert-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        /* --- CARD STYLE --- */
+        .card {
+            background: rgba(30, 30, 30, 0.6); 
+            padding: 25px;
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(6px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #2ecc71;
+        }
+
+        .cert-info h3 { font-size: 18px; color: #fff; margin-bottom: 5px; }
+        .cert-info p { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        
+        button {
+            flex: 1;
+            padding: 10px; border: none; border-radius: 6px;
+            font-weight: 600; cursor: pointer; font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+
+        .btn-verify { background: #2ecc71; color: #000; }
+        .btn-reject { background: #e74c3c; color: #fff; }
+        .btn-view-style { 
+             background: #3498db; 
+             color:#fff; 
+             padding: 10px; 
+             border: none; 
+             border-radius: 6px; 
+             font-weight: 600; 
+             cursor: pointer; 
+             font-size: 13px;
+             text-align: center;
+             text-decoration: none;
+             display: block;
+             margin-bottom: 10px;
+        }
+
+        /* Messages */
+        #status-message { font-size: 14px; color: #aaa; margin-bottom: 20px; font-style: italic; }
+    </style>
+
+	<script>
+		        document.addEventListener('DOMContentLoaded', () => {
+		            loadCertificates();
+		        });
+
+		        // Helper to determine the status color (Allows displaying all statuses)
+		        function getStatusColor(status) {
+		            if (status === 'PENDING') return '#e67e22'; // Orange
+		            if (status === 'VERIFIED') return '#2ecc71'; // Green
+		            if (status === 'REJECTED') return '#e74c3c'; // Red
+		            return '#aaa';
+		        }
+
+		        async function loadCertificates() {
+		            const token = localStorage.getItem("jwt_token");
+		            const statusMsg = document.getElementById('status-message');
+		            const container = document.getElementById('certs-container');
+
+		            if (!token) { window.location.href = "/"; return; }
+
+		            try {
+		                statusMsg.textContent = "Loading all certificates...";
+		                container.innerHTML = ""; // Clear existing content
+		                
+		                // CRITICAL FIX: Calling the correct /all endpoint
+		                const res = await fetch("/api/certificates/all", {
+		                    headers: { "Authorization": "Bearer " + token }
+		                });
+
+		                if (!res.ok) throw new Error("Failed to load data from server. Status: " + res.status);
+
+		                const data = await res.json();
+		                statusMsg.textContent = ""; // Clear loading text
+
+		                if (data.length === 0) {
+		                    statusMsg.innerHTML = "<i class='fa-solid fa-info-circle' style='color:#3498db'></i> No certificates found in the system.";
+		                    return;
+		                }
+
+		                // Render Securely, showing all entries
+		                data.forEach(cert => {
+		                    container.appendChild(createCertCard(cert));
+		                });
+		                
+		                // Update header status based on data
+		                const pendingCount = data.filter(c => c.status === 'PENDING').length;
+		                if (pendingCount > 0) {
+		                     statusMsg.innerHTML = `<i class='fa-solid fa-exclamation-triangle' style='color:#e67e22'></i> Showing all ${data.length} certificates. ${pendingCount} require review.`;
+		                } else {
+		                     statusMsg.innerHTML = "<i class='fa-solid fa-check-circle' style='color:#2ecc71'></i> All certificates processed! Showing history.";
+		                }
+
+
+		            } catch (err) {
+		                console.error("Error in loadCertificates:", err);
+		                statusMsg.textContent = "Error loading certificates. Check console/server logs.";
+		                statusMsg.style.color = "#e74c3c";
+		            }
+		        }
+
+				
+				async function openCertificate(url) {
+				    const token = localStorage.getItem("jwt_token");
+				    if (!token) {
+				        alert("Session expired. Please login again.");
+				        window.location.href = "/";
+				        return;
+				    }
+
+				    const res = await fetch(url, {
+				        headers: { "Authorization": "Bearer " + token }
+				    });
+
+				    if (!res.ok) {
+				        alert("Not authorized or file not found. Status: " + res.status);
+				        return;
+				    }
+
+				    const blob = await res.blob();
+				    const blobUrl = URL.createObjectURL(blob);
+				    window.open(blobUrl, "_blank");
+				}
+
+				
+		        // Helper to create DOM elements (Secure against XSS)
+		        function createCertCard(c) {
+		            const card = document.createElement('div');
+		            card.className = 'card';
+		            card.id = `cert-${c.id}`;
+		            // Apply different border if not pending (using the new helper)
+		            if (c.status !== 'PENDING') {
+		                card.style.borderColor = getStatusColor(c.status);
+		            }
+
+		            // Icon
+		            const icon = document.createElement('div');
+		            icon.innerHTML = '<i class="fa-solid fa-file-certificate" style="font-size:30px; color:#3498db; margin-bottom:15px;"></i>';
+
+		            // Text Info
+		            const info = document.createElement('div');
+		            info.className = 'cert-info';
+		            
+		            const h3 = document.createElement('h3');
+		            h3.textContent = c.title; 
+
+		            const pStudent = document.createElement('p');
+		            pStudent.innerHTML = `**Student:** ${c.student}<br>**Issued:** ${c.issueDate}`;
+
+		            // Display Status
+		            const pStatus = document.createElement('p');
+		            pStatus.style.marginTop = '8px';
+		            pStatus.innerHTML = `**Status:** <span style="font-weight: bold; color: ${getStatusColor(c.status)};">${c.status}</span>`;
+
+		            info.append(h3, pStudent, pStatus);
+
+		            const btnView = document.createElement('a');
+					btnView.className = 'btn-view-style';
+					btnView.href = "#";
+					btnView.innerHTML = '<i class="fa-solid fa-eye"></i> View File';
+					btnView.onclick = (e) => {
+					    e.preventDefault();
+					    openCertificate(c.url);
+					};
+
+		            
+		            // Buttons (Verify/Reject)
+		            const btnGroup = document.createElement('div');
+		            btnGroup.className = 'btn-group';
+
+		            const isPending = c.status === 'PENDING';
+		            
+		            const btnVerify = document.createElement('button');
+		            btnVerify.className = 'btn-verify';
+		            btnVerify.innerHTML = '<i class="fa-solid fa-check"></i> Verify';
+		            btnVerify.onclick = () => processAction(c.id, 'verify');
+		            btnVerify.disabled = !isPending;
+		            btnVerify.style.opacity = isPending ? 1 : 0.5;
+		            
+		            const btnReject = document.createElement('button');
+		            btnReject.className = 'btn-reject';
+		            btnReject.innerHTML = '<i class="fa-solid fa-xmark"></i> Reject';
+		            btnReject.onclick = () => processAction(c.id, 'reject');
+		            btnReject.disabled = !isPending;
+		            btnReject.style.opacity = isPending ? 1 : 0.5;
+
+		            btnGroup.append(btnVerify, btnReject);
+
+		            // Append all to card
+		            card.append(icon, info, btnView, btnGroup); 
+		            return card;
+		        }
+
+		        async function processAction(id, action) {
+		            const token = localStorage.getItem("jwt_token");
+		            const card = document.getElementById(`cert-${id}`);
+		            
+		            // Visual Feedback
+		            const originalOpacity = card.style.opacity;
+		            card.style.opacity = "0.5";
+		            card.style.pointerEvents = "none";
+
+		            try {
+		                // Endpoint: /api/certificates/{action}/{id}
+		                const res = await fetch(`/api/certificates/${action}/${id}`, {
+		                    method: "POST",
+		                    headers: { "Authorization": "Bearer " + token }
+		                });
+
+		                if (res.ok) {
+		                    // Success: Reload the list to show the updated status immediately
+		                    loadCertificates(); 
+		                } else {
+		                    const errorText = await res.text();
+		                    console.error(`Action failed: ${errorText}`);
+		                    alert(`Failed to ${action} certificate.`);
+		                }
+		            } catch (err) {
+		                alert(`Failed to ${action} certificate. Check console/server logs.`);
+		                // Restore state on failure
+		                card.style.opacity = originalOpacity;
+		                card.style.pointerEvents = "auto";
+		            }
+		        }
+
+		        function logout() { if(confirm("Logout?")) { localStorage.clear(); window.location.href = "/"; } }
+		</script>
+</head>
+
+<body>
+
+<aside class="sidebar">
+    <h2 class="logo"><i class="fa-solid fa-user-tie"></i> Faculty</h2>
+    <ul class="menu">
+        <li><a href="dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+        <li><a href="students-overview.html"><i class="fa fa-users"></i> Student Overview</a></li>
+        <li><a href="leetcode-tracker.html"><i class="fa-brands fa-codepen"></i> LeetCode Tracker</a></li>
+        <li><a href="github-analytics.html"><i class="fa-brands fa-github"></i> GitHub Analytics</a></li>
+        <li><a href="hackerrank-skills.html"><i class="fa-brands fa-hackerrank"></i> HackerRank Skills</a></li>
+        <li><a href="coding-logs.html"><i class="fa-solid fa-fire"></i> Daily Coding Logs</a></li>
+        
+        <li><a href="certificate-verification.html" class="active"><i class="fa-solid fa-certificate"></i> Verify Certs</a></li>
+        
+        <li><a href="resume-review.html"><i class="fa-solid fa-file-pdf"></i> Resume Review</a></li>
+        <li><a href="reports.html"><i class="fa-solid fa-chart-pie"></i> Reports & Insights</a></li>
+        <li><a href="settings.html"><i class="fa-solid fa-gear"></i> Settings</a></li>
+        <li><a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+    </ul>
+</aside>
+
+<main class="main">
+    <div class="header">
+        <h1>Certificate Verification</h1>
+        <span style="background:rgba(52, 152, 219, 0.15); color:#3498db; padding:6px 15px; border-radius:20px; font-size:13px; border:1px solid #3498db;">
+            <i class="fa-solid fa-shield-halved"></i> Admin Action Required
+        </span>
+    </div>
+
+    <div id="status-message"></div>
+
+    <div id="certs-container" class="cert-grid">
+        </div>
+
+</main>
+
+</body>
+</html>
